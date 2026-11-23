@@ -57,19 +57,52 @@ and cost after a rehearsal. Proposal counts alone do not establish capacity.
 
 ## Hosted and self-hosted alternatives
 
+- **Conference Hall** describes its hosted CFP and review service as free to
+  users and supported by sponsorship. It also publishes the application
+  source under the AGPL. [Sponsorship][conference-hall-sponsor] ·
+  [Source][conference-hall-source]
+- **CFP.ninja** lists an early-adopter organiser fee of US$99 per event
+  listing. The hosted plan includes proposal review, bulk email and export.
+  The MIT-licensed application can also be self-hosted with PostgreSQL.
+  [Pricing][cfp-ninja] · [Source][cfp-ninja-source]
 - **Sessionize** is free for eligible free community events. Its professional
-  plan costs US$499 plus tax per event occurrence. [Sessionize pricing][sessionize]
-- **Pretalx** prices managed hosting per event based on event size and ticket
-  price, with a community discount of up to 25%. Managed hosting includes
-  maintenance and backups. Self-hosted Pretalx has no licence fee and the
-  organiser pays for infrastructure and operations. [Pretalx pricing][pretalx]
+  plan costs US$499 plus tax per event occurrence. [Pricing][sessionize]
+- **Pretalx** quotes managed hosting per event based on expected attendees
+  and standard ticket price, with a community discount of up to 25%.
+  Managed hosting includes maintenance and backups. Self-hosted Pretalx
+  has no licence fee, and the organiser pays for infrastructure and
+  operations. [Pricing][pretalx]
+- **AgendaForge** lists US$2,000 per event for Core and US$4,000 for Pro.
+  These plans bundle CFP and review with agenda, speaker portal and
+  ticketing. Paid ticket fees can apply separately. [Pricing][agendaforge]
+
+Academic conference tools offer another comparison for research peer review.
+
+- **Microsoft CMT** is a free hosted service for academic and scientific peer
+  review. Organisers submit a conference request, and at least one chair must
+  use an eligible university email. [Service and eligibility][cmt]
+- **EasyChair** is free up to 20 submissions. Its Professional tier costs
+  US$3.90 per submission up to 60. The published Executive and VIP starting
+  price is US$6 per submission on prepaid fixed plans, with possible volume
+  discounts and a VIP setup fee. [Licence pricing][easychair]
 
 Hosted event fees cover services beyond the infrastructure in this estimate.
-Compare the total cost for the event, including the work your team will own.
-Provider prices checked 23 November 2026.
+For example, three months on Workers Paid at the included usage cost US$15
+in base fees on a dedicated account. Compare that plus email, monitoring,
+backups and operator time with the hosted fee for the same event period.
+Proposal counts affect EasyChair's pricing tiers. For per-event or
+attendee-based plans, use their published billing unit and eligibility rules.
+Provider prices and terms checked 23 November 2026.
 
 [workers]: https://developers.cloudflare.com/workers/platform/pricing/
 [d1]: https://developers.cloudflare.com/d1/platform/pricing/
 [limits]: https://developers.cloudflare.com/d1/platform/limits/
+[conference-hall-sponsor]: https://github.com/sponsors/conference-hall
+[conference-hall-source]: https://github.com/conference-hall/conference-hall
+[cfp-ninja]: https://cfp.ninja/pricing
+[cfp-ninja-source]: https://github.com/sreday/cfp.ninja
 [sessionize]: https://sessionize.com/pricing/
 [pretalx]: https://pretalx.com/p/pricing
+[agendaforge]: https://agendaforge.app/pricing
+[cmt]: https://cmt3.research.microsoft.com/docs/help/overview/CMT.html
+[easychair]: https://easychair.org/licenses?cc=USD

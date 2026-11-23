@@ -16,7 +16,8 @@ GongHaa currently implements `GET /readyz` on both deployments.
 - Give IaC-managed resources predictable keys and URNs. Support exact lookup
   and conditional writes so clients can detect and reconcile drift.
 - Use social OIDC login for people and service principals for automation.
-  Authorisation flows from a policy through a role to a scoped grant.
+  Require a second factor for global administrators. Authorisation flows from
+  a policy through a role to a scoped grant.
 
 ## Relationship map
 
@@ -123,13 +124,12 @@ routes are frozen.
 
 OIDC maps the validated `(issuer, subject)` pair to a GongHaa user. Access is
 evaluated for that local user. Service principals have separate credentials
-and grants for IaC. Credential bootstrap, rotation and revocation still need
-a concrete operator design. [OIDC identifier stability][oidc]
+and grants for IaC. [OIDC identifier stability][oidc]
 
 1. A **policy** permits actions on named resource types or identities.
 2. A **role** groups policies.
-3. A **grant** assigns one role to a principal for an organisation or a
-   particular event.
+3. A **grant** assigns one role to a principal at installation, organisation
+   or event scope.
 
 Each protected call requires a matching action, resource and grant scope. An
 event grant covers only that event. The proposed public CFP flow provisions a
@@ -141,22 +141,69 @@ retrieve a complete publication.
 For IaC, `proposal-field:read` on one organisation permits a field lookup
 there. `proposal-field:write` is a separate permission.
 
+## From first deploy to Terraform
+
+1. **Provision and migrate.** The operator deploys the application and runs
+   its database migrations. The install provides an expiring, single-use
+   setup credential to the operator.
+2. **Enrol the first global administrator.** The operator signs in, proves
+   possession of the setup credential and verifies a second factor. GongHaa
+   consumes the credential and creates the first installation-scoped grant
+   atomically. Privileged actions such as creating automation credentials or
+   changing installation grants require a recent second-factor check.
+3. **Delegate automation.** The administrator registers a confidential OAuth
+   client for a service principal and grants access to the intended
+   organisation or event. For an empty installation, a grant may authorise
+   creation at one predetermined organisation URN. The operator supplies the
+   client credential through their CI secret store.
+4. **Apply CFP configuration.** The Terraform provider authenticates at
+   `POST /oauth/token` with `grant_type=client_credentials` and obtains a
+   short-lived access token. It applies the organisation, event, fields,
+   template revisions and scoped access resources through the same API on
+   both deployments. The supported resource types grow with the API.
+
+The token endpoint uses OAuth2 form requests over HTTPS. Its response
+includes `access_token`, `token_type`, `expires_in` and the granted `scope`.
+The provider keeps the token and client credential out of resource state and
+logs. It can request another token when the current one expires.
+[OAuth2 client credentials][oauth-client] · [OAuth security BCP][oauth-bcp]
+
+Each request requires both the token scope and a current role grant for the
+target resource. Authorisation to manage grants must come with an explicit
+delegation limit. A principal can grant only actions and scopes within that
+limit. Revocation stops access that depended on the grant, including from an
+unexpired token. The PoC must settle second-factor enrolment and recovery,
+client credential rotation, and the token format and lifetime.
+
+Pretalx v2026.2.1 can create the first superuser and organiser through
+`pretalx init --noinput`. Its documented API tokens belong to a user and are
+created in the organiser UI. Its released REST API can write a subset of CFP
+resources, including questions and submission types. The event endpoints
+expose reads, so a client needs another mechanism to create an event before
+applying those settings. [Pretalx bootstrap][pretalx-init] ·
+[Token documentation][pretalx-auth] · [Released API schema][pretalx-schema]
+
 ## End-to-end acceptance
 
 Use the same public HTTP scenarios against the built Worker in Workerd with
 local D1 and the Docker image with PostgreSQL. Pytest fixtures own setup and
 cleanup. Tests show each API call and assertion in order.
 
-1. **Apply a field.** Create it conditionally, resolve its URN, reapply the
+1. **Bootstrap and delegate.** Start with an empty database. Complete global
+   administrator enrolment with a second factor and reject reuse of the setup
+   credential. Authenticate the scoped OAuth client and apply configuration
+   for its organisation. Reject a different organisation, a broader scope
+   and any access after revocation. Reapply and verify an empty plan.
+2. **Apply a field.** Create it conditionally, resolve its URN, reapply the
    same body with the current `ETag`, and verify the revision stays stable.
    Apply a change, then verify a stale write returns `412`. A read-only
    principal succeeds on lookup and receives `403` on write.
-2. **Keep a form stable.** Open a CFP with template revision 1 and create a
+3. **Keep a form stable.** Open a CFP with template revision 1 and create a
    proposal. Publish revision 2 and verify that changing the open event's
    pinned revision returns `409`. Read and submit the proposal using revision
    1. A new event can select revision 2. Closing the first CFP makes a new
    submission return `409`.
-3. **Review and publish.** An authorised reviewer saves a review against the
+4. **Review and publish.** An authorised reviewer saves a review against the
    submitted revision. An organiser records a decision. The applicant sees
    it only after publication, and another applicant cannot read it. The
    organiser export matches the frozen publication.
@@ -219,7 +266,8 @@ The full contract and hosted capacity still need these checks.
   `UPDATE` can affect zero rows without raising a SQL error. Dependent audit
   or publication writes must be conditional on a change. [D1 binding API][d1]
 - Can the real Worker complete a configured OIDC login and preserve sessions
-  across requests? Exercise denied grants alongside successful login.
+  across requests? Exercise second-factor enrolment, OAuth token issuance
+  and grant revocation across both deployments.
 - Repeat the critical paths on an isolated hosted Worker and D1 database.
   Measure bundle startup, request CPU, database I/O, export and deadline bursts
   under the scenarios in the [hosting cost model](hosting-cost.md).
@@ -236,3 +284,8 @@ contract with the website integration when its consumers are in scope.
 [worker-packages]: https://developers.cloudflare.com/workers/languages/python/packages/
 [d1]: https://developers.cloudflare.com/d1/worker-api/d1-database/
 [cf-iac]: https://developers.cloudflare.com/workers/platform/infrastructure-as-code/#terraform
+[oauth-client]: https://www.rfc-editor.org/rfc/rfc6749.html#section-4.4
+[oauth-bcp]: https://www.rfc-editor.org/rfc/rfc9700.html
+[pretalx-init]: https://docs.pretalx.org/administrator/commands/#init
+[pretalx-auth]: https://docs.pretalx.org/api/fundamentals/#authentication
+[pretalx-schema]: https://github.com/pretalx/pretalx/blob/v2026.2.1/doc/api/schema.yml
