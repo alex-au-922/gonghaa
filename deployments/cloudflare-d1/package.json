@@ -1,0 +1,7 @@
+{
+  "name": "gonghaa-cloudflare-d1",
+  "private": true,
+  "devDependencies": {
+    "wrangler": "4.164.0"
+  }
+}

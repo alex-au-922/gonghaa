@@ -1,0 +1,10 @@
+name = "gonghaa"
+main = "entrypoint.py"
+base_dir = "../../src"
+compatibility_date = "2026-11-16"
+compatibility_flags = ["python_workers"]
+
+[[d1_databases]]
+binding = "D1"
+database_name = "gonghaa-local"
+database_id = "00000000-0000-0000-0000-000000000000"

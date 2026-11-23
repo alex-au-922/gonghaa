@@ -1,0 +1,7 @@
+**
+!pyproject.toml
+!uv.lock
+!src/gonghaa/**
+!deployments/docker/Dockerfile
+!deployments/docker/entrypoint.py
+**/__pycache__/

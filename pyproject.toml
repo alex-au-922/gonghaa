@@ -1,0 +1,61 @@
+[project]
+name = "gonghaa"
+version = "0.1.0"
+description = "A call for proposals and review tool for community conferences"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.115", "pydantic>=2"]
+
+[project.optional-dependencies]
+docker = ["asyncpg>=0.30", "uvicorn>=0.34"]
+
+[dependency-groups]
+dev = [
+    "asyncpg-stubs>=0.30",
+    "coverage-wasm>=0.2.0,<0.3",
+    "httpx>=0.28",
+    "pyright>=1.1.395",
+    "pytest>=8.3",
+    "ruff>=0.11",
+    "testcontainers>=4.14",
+    "workers-py==1.17.9; python_version >= '3.13'",
+    "workers-runtime-sdk==1.9.6; python_version >= '3.13'",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.dependency-groups]
+dev = { requires-python = ">=3.11" }
+
+[tool.coverage.run]
+branch = true
+source = ["src/gonghaa", "deployments/cloudflare-d1"]
+omit = ["*/python_modules/**"]
+
+[tool.coverage.paths]
+gonghaa = ["src/gonghaa", "/session/metadata/gonghaa"]
+worker = ["deployments/cloudflare-d1", "/session/metadata"]
+
+[tool.coverage.html]
+show_contexts = true
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+executionEnvironments = [
+    { root = "src", pythonVersion = "3.10" },
+    { root = "deployments", pythonVersion = "3.10" },
+]
+include = ["src", "deployments", "tests"]
+exclude = ["**/python_modules", "**/node_modules", "**/.venv-workers", "**/.wrangler"]
+extraPaths = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+extend-exclude = [".venv-workers", "python_modules"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gonghaa"]

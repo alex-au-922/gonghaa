@@ -1,0 +1,25 @@
+[tools]
+# Python tooling
+python = "3.14.3"
+uv = "0.13.4"
+
+# Cloudflare Workers tooling
+node = "24.18.0"
+npm = "11.16.0"
+"npm:wrangler" = "4.164.0"
+
+# Documentation tooling
+"npm:markdownlint-cli2" = "0.24.1"
+
+# Local containers and Kubernetes
+docker-cli = "29.6.1"
+kind = "0.33.0"
+kubectl = "1.37.0"
+
+[tasks."lint:markdown"]
+description = "Lint Markdown files"
+run = 'markdownlint-cli2 "**/*.md" "#.pytest_cache" "#.venv" "#**/.venv-workers" "#**/node_modules" "#**/python_modules" "#**/.wrangler"'
+
+[tasks.test]
+description = "Run the local HTTP readiness tests"
+run = "uv run --locked --extra docker pytest"

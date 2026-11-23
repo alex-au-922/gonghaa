@@ -1,0 +1,15 @@
+.DS_Store
+.coverage*
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+.pytest_cache/
+.ruff_cache/
+.venv*/
+.wrangler/
+__pycache__/
+node_modules/
+python_modules/
+dist/
+htmlcov/

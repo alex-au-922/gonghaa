@@ -1,0 +1,29 @@
+name: End-to-end tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5
+        with:
+          install: true
+          cache: false
+      - run: mise run lint:markdown
+      - run: mise run test -- --cov --cov-report=term-missing --cov-report=html
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cloudflare-d1-coverage
+          path: htmlcov/
+          if-no-files-found: error
