@@ -208,6 +208,38 @@ cleanup. Tests show each API call and assertion in order.
    it only after publication, and another applicant cannot read it. The
    organiser export matches the frozen publication.
 
+## Data retention and exit
+
+An organiser with a dedicated event archive grant can export one event in a
+documented, versioned format. The archive includes configuration and stable
+URNs, template and proposal revisions, reviews, decision publications and
+applicable retention settings. Include attachment files with integrity hashes
+when attachments are supported. Encrypt the archive in transit and at rest.
+Record who exported or imported it, for which event, and when.
+
+An import validates the archive and its references before exposing any data.
+It resolves scope to the destination event and keeps the restored event
+private until the organiser verifies it. Role definitions and assignment
+references can move. An operator must map identities and reapprove grants
+before they take effect. Credentials, active sessions, MFA factors and
+recovery codes stay with the original installation. Configure new secrets and
+re-enrol identity and admin access at the destination.
+
+Keep the public programme, an applicant's access or portability request,
+and the organiser's migration archive as distinct exports. Review requests
+for third-party data before disclosure. Define retention for live data,
+backups and event archives. When restoring a backup that predates an
+approved erasure, reapply the erasure before admitting traffic. Document the
+provider's backup expiry and the organiser's responsibility for copies they
+download. [EDPB individual rights][data-rights] · [D1 backup retention][d1-backup]
+
+For the first exit test, restore a synthetic private event from D1 to a fresh
+PostgreSQL deployment. Verify record counts, stable references and publication
+history after restore. Reject archive requests from an applicant, an ordinary
+reviewer and a principal scoped to another event. Reject an archive whose
+references escape its event. Verify grant reapproval and check that an
+approved erasure survives a restore.
+
 ## Terraform boundaries
 
 Infrastructure and CFP configuration have separate lifecycles. Preserve the
@@ -289,3 +321,5 @@ contract with the website integration when its consumers are in scope.
 [pretalx-init]: https://docs.pretalx.org/administrator/commands/#init
 [pretalx-auth]: https://docs.pretalx.org/api/fundamentals/#authentication
 [pretalx-schema]: https://github.com/pretalx/pretalx/blob/v2026.2.1/doc/api/schema.yml
+[data-rights]: https://www.edpb.europa.eu/sme/be-compliant/respect-individuals-rights_en
+[d1-backup]: https://developers.cloudflare.com/d1/reference/time-travel/

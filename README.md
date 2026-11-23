@@ -20,7 +20,9 @@ Deploy to **Cloudflare Workers with D1** or self-host independently with
 **Docker and PostgreSQL**. The self-hosted option needs no Cloudflare account
 or services.
 
-The [hosting cost model](docs/hosting-cost.md) covers 10 to 10,000 proposals.
+The [pilot proposal](docs/proposal.md) compares Sessionize and sets the
+privacy and exit goals. The [hosting cost model](docs/hosting-cost.md)
+covers 10 to 10,000 proposals.
 See the [GitHub Project][backlog] for the backlog and acceptance criteria.
 
 ## Status
