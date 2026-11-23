@@ -161,6 +161,35 @@ cleanup. Tests show each API call and assertion in order.
    it only after publication, and another applicant cannot read it. The
    organiser export matches the frozen publication.
 
+## Terraform boundaries
+
+Infrastructure and CFP configuration have separate lifecycles. Preserve the
+same application contract whichever deployment an organiser chooses.
+
+- **Cloudflare infrastructure.** Terraform can manage the D1 database,
+  Worker, bindings, immutable Worker version and traffic deployment. A
+  release builds the Python modules and dependencies with Pywrangler first.
+  Terraform then uploads the built modules. Another supported option is for
+  Terraform to own the infrastructure and for Wrangler to own Worker versions
+  and deployments. Choose one owner for each resource. [Cloudflare IaC][cf-iac]
+- **Self-hosted infrastructure.** Build the Docker image from source, provision
+  PostgreSQL and run its migrations. Operators can use their existing Docker
+  or Kubernetes tooling for deployment. The self-hosted application serves
+  the same API independently of Cloudflare.
+- **GongHaa configuration.** Apply application resources once the database
+  schema and API are ready. A future Terraform provider would resolve and
+  import a field by URN, read state and its `ETag` for drift detection, and
+  apply changes with the documented preconditions. Decide how to archive
+  resources that published templates still reference before supporting
+  Terraform destroy for those resources.
+
+A local Terraform `validate` passed with Cloudflare provider `5.29.0` for a
+D1 database, a Python Worker version with two modules and the `D1` binding,
+and a deployment to that version. The hosted PoC must upload the complete
+Pywrangler artifact, apply D1 migrations, check `/readyz` and repeat the apply.
+It should prove that an unchanged plan is empty and that a code-only update
+creates a new Worker version while keeping the same database.
+
 ## Worker and D1 proof of concept
 
 Local readiness runs in GongHaa CI on both deployments. A separate prototype
@@ -202,3 +231,4 @@ contract with the website integration when its consumers are in scope.
 [oidc]: https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability
 [worker-packages]: https://developers.cloudflare.com/workers/languages/python/packages/
 [d1]: https://developers.cloudflare.com/d1/worker-api/d1-database/
+[cf-iac]: https://developers.cloudflare.com/workers/platform/infrastructure-as-code/#terraform
