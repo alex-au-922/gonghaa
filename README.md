@@ -15,10 +15,13 @@ for community conferences. It aims to provide self-hostable call for proposals
 submission form, give reviewers access to the right event, and hand a working
 setup over to the next team.
 
-The first goal is to run one conference CFP and review cycle affordably.
-We aim to fit a small event within the Cloudflare Free plan and measure
-hosting usage during a rehearsal. Organisers can also self-host with Docker
-and PostgreSQL.
+The first goal is to run a conference CFP and review cycle affordably.
+Deploy to **Cloudflare Workers with D1** or self-host independently with
+**Docker and PostgreSQL**. The self-hosted option needs no Cloudflare account
+or services.
+
+The [hosting cost model](docs/hosting-cost.md) covers 10 to 10,000 proposals.
+See the [GitHub Project][roadmap] for milestones and acceptance criteria.
 
 ## Status
 
@@ -82,3 +85,5 @@ Examples from real events help us prioritise the first workflow.
 ## License
 
 GongHaa is available under the [MIT License](LICENSE).
+
+[roadmap]: https://github.com/users/alex-au-922/projects/1/views/1

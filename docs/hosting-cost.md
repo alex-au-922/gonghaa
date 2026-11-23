@@ -1,0 +1,75 @@
+# Hosting costs
+
+Choose **Cloudflare Workers with D1** or **Docker with PostgreSQL**. The Docker
+deployment runs on infrastructure you control and needs no Cloudflare account
+or services. GongHaa has no software licence fee. Hosting and operating costs
+depend on your deployment and workload.
+
+## Cloudflare Workers with D1
+
+These are estimates for one event in one active billing month. Each proposal
+stands for 100 dynamic Worker requests, 2,000 billed D1 rows read and 50 billed
+D1 rows written across submission, review and decisions. We model 25% of each
+in the same deadline day. For Workers Paid, we assume an average of 20 ms of
+CPU per request and up to 5 GB of included D1 storage across the account.
+
+| Proposals | Requests  | Rows read  | Rows written | Paid CPU (ms) |
+| --------: | --------: | ---------: | -----------: | ------------: |
+|        10 |     1,000 |     20,000 |          500 |        20,000 |
+|       100 |    10,000 |    200,000 |        5,000 |       200,000 |
+|     1,000 |   100,000 |  2,000,000 |       50,000 |     2,000,000 |
+|    10,000 | 1,000,000 | 20,000,000 |      500,000 |    20,000,000 |
+
+| Proposals | Deadline requests | Deadline reads | Deadline writes |
+| --------: | ----------------: | -------------: | --------------: |
+|        10 |               250 |          5,000 |             125 |
+|       100 |             2,500 |         50,000 |           1,250 |
+|     1,000 |            25,000 |        500,000 |          12,500 |
+|    10,000 |           250,000 |      5,000,000 |         125,000 |
+
+- **10, 100 or 1,000 proposals:** US$0 on Free if each Worker invocation fits
+  its 10 ms CPU limit and the account stays within all Free limits. The
+  modelled counts fit the daily request and row limits. Otherwise, budget
+  US$5 on Paid if usage fits its included allowances.
+- **10,000 proposals:** US$5 on Paid under the model. The deadline day exceeds
+  Free's 100,000 daily requests and 100,000 daily writes. Reads reach its
+  5 million daily limit. The monthly totals fit Paid's 10 million requests,
+  30 million CPU ms, 25 billion rows read and 50 million rows written.
+
+The 20 ms CPU assumption applies to the Paid estimate. Free also caps each D1
+database at 500 MB, with 5 GB across the account. Paid's US$5 monthly minimum
+and usage allowances are shared across the account. Include other workloads
+on that account and every billing month the event is active in your estimate.
+[Workers pricing][workers] · [D1 pricing][d1] · [D1 limits][limits]
+
+## Docker with PostgreSQL
+
+For each proposal scenario, budget for compute, database storage and off-site
+backups. An existing host with spare capacity can have zero additional compute
+cost. A new host adds its rental cost and a separate database service adds its
+own charge. Measure peak throughput, CPU, RAM and disk usage in a rehearsal
+to size the host for the deadline load.
+
+For either deployment, budget separately for any domain, transactional email
+and monitoring fees, plus the time spent on updates, backup restores and
+incident response. Record the measured CPU, requests, database usage, storage
+and cost after a rehearsal. Proposal counts alone do not establish capacity.
+
+## Hosted and self-hosted alternatives
+
+- **Sessionize** is free for eligible free community events. Its professional
+  plan costs US$499 plus tax per event occurrence. [Sessionize pricing][sessionize]
+- **Pretalx** prices managed hosting per event based on event size and ticket
+  price, with a community discount of up to 25%. Managed hosting includes
+  maintenance and backups. Self-hosted Pretalx has no licence fee and the
+  organiser pays for infrastructure and operations. [Pretalx pricing][pretalx]
+
+Hosted event fees cover services beyond the infrastructure in this estimate.
+Compare the total cost for the event, including the work your team will own.
+Provider prices checked 23 November 2026.
+
+[workers]: https://developers.cloudflare.com/workers/platform/pricing/
+[d1]: https://developers.cloudflare.com/d1/platform/pricing/
+[limits]: https://developers.cloudflare.com/d1/platform/limits/
+[sessionize]: https://sessionize.com/pricing/
+[pretalx]: https://pretalx.com/p/pricing
