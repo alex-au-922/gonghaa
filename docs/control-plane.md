@@ -1,75 +1,325 @@
-# Control plane contract draft
+# Model and control plane contract
 
-The first API slice is one reusable proposal field. It gives an IaC client
-enough behaviour to create a field, look it up by a predictable identifier,
-detect drift, and apply the desired state on either deployment.
+This v0 draft is for team review. It describes one CFP from reusable form
+configuration through submission, review, decision publication and export.
+The API shapes, lifecycle rules and permission names below are proposals.
+GongHaa currently implements `GET /readyz` on both deployments.
 
-## Project requirements
+## Design requirements
 
-- A control plane exposes the same HTTP API on Cloudflare Workers with D1 and
-  self-hosted Docker or Kubernetes with PostgreSQL.
-- Deployment tooling provisions infrastructure and runs schema migrations.
-  IaC clients configure GongHaa through its HTTP API.
-- Use SQLModel for persistence models and Pydantic for HTTP payloads.
-- Proposal templates reference fields by URN. Publishing a template revision
-  freezes the field definitions it uses. A proposal records its template
-  revision so later edits preserve the form the submitter filled in.
-- People sign in through social login. The provider issuer and subject identify
-  a login account. IaC uses a separate service principal.
-- Policies define allowed actions on resources. Roles attach policies. Grants
-  assign roles to principals within a scope such as an organisation or event.
-  Requests require an applicable grant and policy.
+- Provide one versioned HTTP contract for Cloudflare Workers with D1 and
+  independent Docker with PostgreSQL. Installers provision infrastructure and
+  migrate the database. IaC clients apply application configuration over HTTP.
+- Use SQLModel for persistence records and Pydantic for HTTP models. Keep
+  database access behind the deployment adapters and share validation and
+  lifecycle rules across both deployments.
+- Give IaC-managed resources predictable keys and URNs. Support exact lookup
+  and conditional writes so clients can detect and reconcile drift.
+- Use social OIDC login for people and service principals for automation.
+  Require a second factor for global administrators. Authorisation flows from
+  a policy through a role to a scoped grant.
 
-## Proposed proposal field API
+## Relationship map
 
-An organisation key and a field key are stable lowercase slugs. The URN is
-derived from them within a control-plane installation. IaC state identifies
-the installation by its API endpoint and identifies the resource by its URN.
+The map shows resource relationships. Field snapshots can live in the
+template revision, and exports can be generated from a publication.
+
+```mermaid
+erDiagram
+    ORGANISATION ||--o{ EVENT : owns
+    ORGANISATION ||--o{ PROPOSAL_FIELD : owns
+    ORGANISATION ||--o{ TEMPLATE : owns
+    TEMPLATE ||--o{ TEMPLATE_REVISION : versions
+    TEMPLATE_REVISION ||--o{ FIELD_SNAPSHOT : freezes
+    PROPOSAL_FIELD ||--o{ FIELD_SNAPSHOT : identifies
+    TEMPLATE_REVISION o|--o{ EVENT : configures
+    EVENT ||--o{ PROPOSAL : receives
+    PROPOSAL ||--o{ PROPOSAL_REVISION : records
+    PROPOSAL_REVISION ||--o{ REVIEW : receives
+    PROPOSAL_REVISION ||--o| DECISION : receives
+    EVENT ||--o{ DECISION_PUBLICATION : publishes
+    DECISION_PUBLICATION ||--o{ PUBLISHED_OUTCOME : freezes
+    PROPOSAL_REVISION ||--o{ PUBLISHED_OUTCOME : identifies
+```
+
+- **Organisation and event.** The organisation owns reusable definitions and
+  access configuration. An event selects a published template revision. Opening
+  the CFP pins that revision for the event. The first flow is
+  `draft → open → closed`.
+- **Field and template.** A field defines a reusable input. A published
+  template revision stores ordered field snapshots with their URN, label,
+  kind, required flag and validation rules. Editing the field or publishing
+  another template revision leaves earlier snapshots intact.
+- **Proposal and revision.** A proposal belongs to its author and event. The
+  author edits a draft until submission, which freezes a revision for review.
+  Draft saves and submissions require an open CFP. The proposal uses its
+  event's pinned template revision. Reopening or resubmitting a proposal is
+  an open design choice.
+- **Review and decision.** A review targets a submitted proposal revision and
+  records its reviewer, rating and notes. One reviewer has one review per
+  revision. The organiser can record or revise `accepted` or `rejected` while
+  the outcome is staged.
+- **Publication and export.** Publishing copies the event's staged decisions
+  into an immutable snapshot and makes it current in the same transaction.
+  Applicants see their own outcomes in the current snapshot. Later edits
+  remain staged until the next explicit publication. An authorised organiser
+  can export any specified publication and get the original outcomes.
+  The export format and a public programme view are open design choices.
+
+## Resource identity and HTTP
+
+The proposed organisation and resource keys are lowercase, hyphen-separated
+slugs. A proposal field URN is derived from its organisation and field key.
+GongHaa resolves these identifiers within one installation. An IaC client
+keeps the API endpoint together with the URN in its state.
 
 ```text
 urn:gonghaa:org:pyconhk:proposal-field:talk-title
 ```
 
-The collection URL is `/v1/orgs/{org}/proposal-fields`. Append `/{key}` for
-the canonical field URL.
+All organisation resources below are relative to `/v1/orgs/{org}`. Field
+configuration is the first implementation slice. Later route names illustrate
+the resource boundaries and are still open for review.
+
+| Resource | Collection or action |
+| -------- | -------------------- |
+| Reusable field | `/proposal-fields` |
+| Template revision | `/templates/{template}/revisions/{revision}` |
+| Event and CFP state | `/events/{event}` |
+| Proposal | `/events/{event}/proposals` |
+| Submit a proposal | `POST` to a proposal's `/submit` action |
+| Review and staged decision | A proposal's `/reviews` and `/decision` |
+| Decision publication and export | An event's `/publications` and `/exports` |
+
+### Field configuration
+
+The canonical field route is `/proposal-fields/{key}`. Its writable JSON
+properties start with `label` and `kind`, with `short_text` as the first kind.
+The response includes the derived `urn`.
 
 - `GET` the field to read it with its `ETag`, or receive `404`.
-- `GET` the collection with `?urn={urn}` for an `items` list containing the
-  exact match, or an empty list.
-- `PUT` the field with `If-None-Match: *` to create it. Success returns `201`
-  with its `Location`. An existing field returns `412`.
-- `PUT` the field with `If-Match: <etag>` to apply to the matching revision.
-  Success returns `204`. A stale revision returns `412`.
+- `GET /proposal-fields?urn={urn}` returns an `items` list containing the
+  exact authorised match, or an empty list. Clients URL-encode the URN.
+- `PUT` with `If-None-Match: *` creates the field and returns `201` with its
+  `Location`. An existing field returns `412`.
+- `PUT` with `If-Match: <etag>` applies to the matching revision and returns
+  `204`. The server preserves the revision when the normalised values match.
+  A stale revision returns `412` and a missing precondition returns `428`.
 
-The first writable field properties are `label` and `kind`, with `short_text`
-as the first supported kind. The response also includes the field's `urn`.
-Clients read the canonical URL after a write to get its current representation
-and `ETag`. Applying identical values with the current `ETag` preserves the
-revision. A write without a precondition returns `428`.
+The database checks the revision and writes atomically. A client reads the
+canonical resource after a successful write to get the new `ETag`. After a
+lost response or `412`, it reads the current state and compares it with the
+desired state before retrying. [HTTP PUT and preconditions][rfc9110-put] ·
 [Precondition Required][rfc6585]
 
-The database applies the expected revision and write atomically. When a response
-is lost or a precondition fails, the client reads the field again and compares
-it with the desired state before retrying. [HTTP conditional requests][rfc9110]
+For later mutations, use `409` for an action that conflicts with the resource
+state, such as submitting to a closed event. Use `422` for a payload that
+fails validation. Return a stable machine-readable error code. Use `401` for
+missing or invalid authentication and `403` for missing permission within an
+organisation the caller can access. Resolve out-of-scope resources as `404`.
+Proposal and publication creation must specify retry behaviour before their
+routes are frozen.
 
-Field requests require `proposal-field:read` or `proposal-field:write` on the
-requested organisation. The first deployment can provision an IaC service
-principal with only those actions for its own organisation.
+## Principals and permission checks
 
-## First acceptance test
+OIDC maps the validated `(issuer, subject)` pair to a GongHaa user. Access is
+evaluated for that local user. Service principals have separate credentials
+and grants for IaC. [OIDC identifier stability][oidc]
 
-Run the same HTTP cases against the Pywrangler bundle with local D1 and the
-Docker image with PostgreSQL.
+1. A **policy** permits actions on named resource types or identities.
+2. A **role** groups policies.
+3. A **grant** assigns one role to a principal at installation, organisation
+   or event scope.
 
-1. Create a field, check its URN, and resolve it through the lookup route.
-2. Apply the same field again and check that `ETag` stays the same.
-3. Make an actual change, then verify that a write with the old `ETag` fails.
-4. Confirm a read-only principal can read the field and cannot write it.
+Each protected call requires a matching action, resource and grant scope. An
+event grant covers only that event. The proposed public CFP flow provisions a
+configured applicant role grant for a signed-in user when they start a draft
+in an open event. The role permits creating a proposal and managing or
+reading the applicant's own records. An organiser needs export permission to
+retrieve a complete publication.
 
-The team still needs to settle the exact URN vocabulary, which changes to a
-field definition create a new key, and how operators bootstrap their first
-service principal. Template publication, social login, proposal submission and
-review follow this API slice.
+For IaC, `proposal-field:read` on one organisation permits a field lookup
+there. `proposal-field:write` is a separate permission.
 
-[rfc9110]: https://www.rfc-editor.org/rfc/rfc9110.html#section-13
+## From first deploy to Terraform
+
+1. **Provision and migrate.** The operator deploys the application and runs
+   its database migrations. The install provides an expiring, single-use
+   setup credential to the operator.
+2. **Enrol the first global administrator.** The operator signs in, proves
+   possession of the setup credential and verifies a second factor. GongHaa
+   consumes the credential and creates the first installation-scoped grant
+   atomically. Privileged actions such as creating automation credentials or
+   changing installation grants require a recent second-factor check.
+3. **Delegate automation.** The administrator registers a confidential OAuth
+   client for a service principal and grants access to the intended
+   organisation or event. For an empty installation, a grant may authorise
+   creation at one predetermined organisation URN. The operator supplies the
+   client credential through their CI secret store.
+4. **Apply CFP configuration.** The Terraform provider authenticates at
+   `POST /oauth/token` with `grant_type=client_credentials` and obtains a
+   short-lived access token. It applies the organisation, event, fields,
+   template revisions and scoped access resources through the same API on
+   both deployments. The supported resource types grow with the API.
+
+The token endpoint uses OAuth2 form requests over HTTPS. Its response
+includes `access_token`, `token_type`, `expires_in` and the granted `scope`.
+The provider keeps the token and client credential out of resource state and
+logs. It can request another token when the current one expires.
+[OAuth2 client credentials][oauth-client] · [OAuth security BCP][oauth-bcp]
+
+Each request requires both the token scope and a current role grant for the
+target resource. Authorisation to manage grants must come with an explicit
+delegation limit. A principal can grant only actions and scopes within that
+limit. Revocation stops access that depended on the grant, including from an
+unexpired token. The PoC must settle second-factor enrolment and recovery,
+client credential rotation, and the token format and lifetime.
+
+Pretalx v2026.2.1 can create the first superuser and organiser through
+`pretalx init --noinput`. Its documented API tokens belong to a user and are
+created in the organiser UI. Its released REST API can write a subset of CFP
+resources, including questions and submission types. The event endpoints
+expose reads, so a client needs another mechanism to create an event before
+applying those settings. [Pretalx bootstrap][pretalx-init] ·
+[Token documentation][pretalx-auth] · [Released API schema][pretalx-schema]
+
+## End-to-end acceptance
+
+Use the same public HTTP scenarios against the built Worker in Workerd with
+local D1 and the Docker image with PostgreSQL. Pytest fixtures own setup and
+cleanup. Tests show each API call and assertion in order.
+
+1. **Bootstrap and delegate.** Start with an empty database. Complete global
+   administrator enrolment with a second factor and reject reuse of the setup
+   credential. Authenticate the scoped OAuth client and apply configuration
+   for its organisation. Reject a different organisation, a broader scope
+   and any access after revocation. Reapply and verify an empty plan.
+2. **Apply a field.** Create it conditionally, resolve its URN, reapply the
+   same body with the current `ETag`, and verify the revision stays stable.
+   Apply a change, then verify a stale write returns `412`. A read-only
+   principal succeeds on lookup and receives `403` on write.
+3. **Keep a form stable.** Open a CFP with template revision 1 and create a
+   proposal. Publish revision 2 and verify that changing the open event's
+   pinned revision returns `409`. Read and submit the proposal using revision
+   1. A new event can select revision 2. Closing the first CFP makes a new
+   submission return `409`.
+4. **Review and publish.** An authorised reviewer saves a review against the
+   submitted revision. An organiser records a decision. The applicant sees
+   it only after publication, and another applicant cannot read it. The
+   organiser export matches the frozen publication.
+
+## Data retention and exit
+
+An organiser with a dedicated event archive grant can export one event in a
+documented, versioned format. The archive includes configuration and stable
+URNs, template and proposal revisions, reviews, decision publications and
+applicable retention settings. Include attachment files with integrity hashes
+when attachments are supported. Encrypt the archive in transit and at rest.
+Record who exported or imported it, for which event, and when.
+
+An import validates the archive and its references before exposing any data.
+It resolves scope to the destination event and keeps the restored event
+private until the organiser verifies it. Role definitions and assignment
+references can move. An operator must map identities and reapprove grants
+before they take effect. Credentials, active sessions, MFA factors and
+recovery codes stay with the original installation. Configure new secrets and
+re-enrol identity and admin access at the destination.
+
+Keep the public programme, an applicant's access or portability request,
+and the organiser's migration archive as distinct exports. Review requests
+for third-party data before disclosure. Define retention for live data,
+backups and event archives. When restoring a backup that predates an
+approved erasure, reapply the erasure before admitting traffic. Document the
+provider's backup expiry and the organiser's responsibility for copies they
+download. [EDPB individual rights][data-rights] · [D1 backup retention][d1-backup]
+
+For the first exit test, restore a synthetic private event from D1 to a fresh
+PostgreSQL deployment. Verify record counts, stable references and publication
+history after restore. Reject archive requests from an applicant, an ordinary
+reviewer and a principal scoped to another event. Reject an archive whose
+references escape its event. Verify grant reapproval and check that an
+approved erasure survives a restore.
+
+## Terraform boundaries
+
+Infrastructure and CFP configuration have separate lifecycles. Preserve the
+same application contract whichever deployment an organiser chooses.
+
+- **Cloudflare infrastructure.** Terraform can manage the D1 database,
+  Worker, bindings, immutable Worker version and traffic deployment. A
+  release builds the Python modules and dependencies with Pywrangler first.
+  Terraform then uploads the built modules. Another supported option is for
+  Terraform to own the infrastructure and for Wrangler to own Worker versions
+  and deployments. Choose one owner for each resource. [Cloudflare IaC][cf-iac]
+- **Self-hosted infrastructure.** Build the Docker image from source, provision
+  PostgreSQL and run its migrations. Operators can use their existing Docker
+  or Kubernetes tooling for deployment. The self-hosted application serves
+  the same API independently of Cloudflare.
+- **GongHaa configuration.** Apply application resources once the database
+  schema and API are ready. A future Terraform provider would resolve and
+  import a field by URN, read state and its `ETag` for drift detection, and
+  apply changes with the documented preconditions. Decide how to archive
+  resources that published templates still reference before supporting
+  Terraform destroy for those resources.
+
+A local Terraform `validate` passed with Cloudflare provider `5.29.0` for a
+D1 database, a Python Worker version with its `D1` binding, and a deployment
+to that version. The version's manifest used all 731 modules from the
+Pywrangler dry-run payload, preserving their names and media types. The same
+artifact also passed an offline `terraform plan` using the multipart Worker
+script resource and a D1 database. The plan proposed two creates.
+
+The hosted PoC must upload the artifact, apply D1 migrations, check `/readyz`
+and repeat the apply. It should prove that an unchanged plan is empty and
+that a code-only update creates a new version while keeping the database.
+
+## Worker and D1 proof of concept
+
+Local readiness runs in GongHaa CI on both deployments. A separate prototype
+ran three HTTP cases against the bundled Python Worker and local D1.
+
+- Conditional create, URN lookup and an unchanged apply behaved as specified.
+- Two simultaneous writes with the same `ETag` returned one `204` and one
+  `412`. The winning value was readable afterwards.
+- An induced SQLite constraint failure rolled back the update and preserved
+  both the old value and its `ETag`.
+- A separate Pywrangler bundle imported SQLModel `0.0.50`, SQLAlchemy `2.1.9`
+  and Pydantic `2.14.3`. A real HTTP request exercised a SQLModel table
+  definition and SQLite DDL generation. An invalid request returned `422`.
+
+The Worker can use the shared model types and execute D1 queries through its
+native binding. The PoCs do not establish a D1-backed SQLAlchemy session.
+The full contract and hosted capacity still need these checks.
+
+- Do equivalent migrations create the same constraints on D1 and PostgreSQL?
+  Exercise a clean schema and an upgrade with existing records.
+- Prove cross-runtime parity for conditional writes. Test publication and
+  rollback through D1's native binding and PostgreSQL transactions. A stale
+  `UPDATE` can affect zero rows without raising a SQL error. Dependent audit
+  or publication writes must be conditional on a change. [D1 binding API][d1]
+- Can the real Worker complete a configured OIDC login and preserve sessions
+  across requests? Exercise second-factor enrolment, OAuth token issuance
+  and grant revocation across both deployments.
+- Repeat the critical paths on an isolated hosted Worker and D1 database.
+  Measure bundle startup, request CPU, database I/O, export and deadline bursts
+  under the scenarios in the [hosting cost model](hosting-cost.md).
+  [Python Workers packages][worker-packages]
+
+Before freezing v0, agree on the exact URN vocabulary, field changes that
+require a new key, credential bootstrap and publication/export semantics.
+Define the separate programme snapshot, change feed and webhook delivery
+contract with the website integration when its consumers are in scope.
+
+[rfc9110-put]: https://www.rfc-editor.org/rfc/rfc9110.html#section-9.3.4
 [rfc6585]: https://www.rfc-editor.org/rfc/rfc6585.html#section-3
+[oidc]: https://openid.net/specs/openid-connect-core-1_0.html#ClaimStability
+[worker-packages]: https://developers.cloudflare.com/workers/languages/python/packages/
+[d1]: https://developers.cloudflare.com/d1/worker-api/d1-database/
+[cf-iac]: https://developers.cloudflare.com/workers/platform/infrastructure-as-code/#terraform
+[oauth-client]: https://www.rfc-editor.org/rfc/rfc6749.html#section-4.4
+[oauth-bcp]: https://www.rfc-editor.org/rfc/rfc9700.html
+[pretalx-init]: https://docs.pretalx.org/administrator/commands/#init
+[pretalx-auth]: https://docs.pretalx.org/api/fundamentals/#authentication
+[pretalx-schema]: https://github.com/pretalx/pretalx/blob/v2026.2.1/doc/api/schema.yml
+[data-rights]: https://www.edpb.europa.eu/sme/be-compliant/respect-individuals-rights_en
+[d1-backup]: https://developers.cloudflare.com/d1/reference/time-travel/

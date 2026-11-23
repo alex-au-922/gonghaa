@@ -20,16 +20,18 @@ Deploy to **Cloudflare Workers with D1** or self-host independently with
 **Docker and PostgreSQL**. The self-hosted option needs no Cloudflare account
 or services.
 
-The [hosting cost model](docs/hosting-cost.md) covers 10 to 10,000 proposals.
-See the [GitHub Project][roadmap] for milestones and acceptance criteria.
+The [pilot proposal](docs/proposal.md) compares Sessionize and sets the
+privacy and exit goals. The [hosting cost model](docs/hosting-cost.md)
+covers 10 to 10,000 proposals.
+See the [GitHub Project][backlog] for the backlog and acceptance criteria.
 
 ## Status
 
 GongHaa is in early development. The first implementation is `GET /readyz`,
 which runs `SELECT 1` against the deployment's database. The planned first
 CFP workflow takes one event from configuring a versioned form to accepting
-or rejecting submissions. The [control plane contract draft](docs/control-plane.md)
-describes the first proposal field API for review.
+or rejecting submissions. The [model and control plane contract draft][contract]
+describes the resource relationships, API and deployment checks for team review.
 
 Each deployment defines its FastAPI app in its Python entry point. Both share
 the readiness response model in `src/gonghaa/`.
@@ -86,4 +88,5 @@ Examples from real events help us prioritise the first workflow.
 
 GongHaa is available under the [MIT License](LICENSE).
 
-[roadmap]: https://github.com/users/alex-au-922/projects/1/views/1
+[backlog]: https://github.com/users/alex-au-922/projects/1/views/1
+[contract]: docs/control-plane.md
