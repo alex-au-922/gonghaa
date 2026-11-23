@@ -184,11 +184,12 @@ same application contract whichever deployment an organiser chooses.
   Terraform destroy for those resources.
 
 A local Terraform `validate` passed with Cloudflare provider `5.29.0` for a
-D1 database, a Python Worker version with two modules and the `D1` binding,
-and a deployment to that version. The hosted PoC must upload the complete
-Pywrangler artifact, apply D1 migrations, check `/readyz` and repeat the apply.
-It should prove that an unchanged plan is empty and that a code-only update
-creates a new Worker version while keeping the same database.
+D1 database, a Python Worker version with its `D1` binding, and a deployment
+to that version. The version's manifest used all 731 modules from the
+Pywrangler dry-run payload, preserving their names and media types. The
+hosted PoC must upload the artifact, apply D1 migrations, check `/readyz`
+and repeat the apply. It should prove that an unchanged plan is empty and
+that a code-only update creates a new version while keeping the database.
 
 ## Worker and D1 proof of concept
 
